@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cổng Truyện Tranh & Novel</title>
+  <style>
+    :root {
+      --bg: #121212;
+      --card-bg: #1e1e1e;
+      --text: #f0f0f0;
+      --muted: #a0a0a0;
+      --primary: #ff4757;
+      --primary-hover: #ff6b81;
+      --border: #333333;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      color: var(--primary);
+      cursor: pointer;
+    }
+
+    .btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.2s;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #333; }
+    .btn-secondary:hover { background: #444; }
+
+    /* Lưới hiển thị danh sách truyện */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: transform 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
+    .card:hover { transform: translateY(-4px); }
+
+    .card img {
+      width: 100%;
+      height: 240px;
+      object-fit: cover;
+      background: #252525;
+    }
+
+    .card-body {
+      padding: 12px;
+      flex-grow: 1;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: bold;
+      border-radius: 4px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .badge-novel { background: #2ed573; color: #000; }
+    .badge-comic { background: #ffa502; color: #000; }
+
+    /* Modal popups */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 4px;
+      margin-bottom: 12px;
+      background: #252525;
+      color: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    /* Giao diện đọc truyện */
+    .reader-header {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .novel-view {
+      font-size: 18px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      background: #181818;
+      padding: 20px;
+      border-radius: 8px;
+    }
+
+    .comic-view img {
+      width: 100%;
+      max-width: 800px;
+      display: block;
+      margin: 0 auto 10px;
+    }
+
+    .danger-btn { background: #b33939; }
+    .danger-btn:hover { background: #cd6155; }
+  </style>
+</head>
+<body>
+
+  <div class="container" id="homeView">
+    <header>
+      <h1 onclick="showHome()">📖 Manga & Novel Online</h1>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary" onclick="exportData()">⬇ Xuất Dữ Liệu</button>
+        <button class="btn" onclick="openCreateStoryModal()">+ Đăng Truyện Mới</button>
+      </div>
+    </header>
+
+    <h2>Danh mục tác phẩm</h2>
+    <div class="grid" id="storyGrid"></div>
+  </div>
+
+  <!-- Giao diện đọc truyện -->
+  <div class="container" id="readView" style="display: none;">
+    <div class="reader-header">
+      <button class="btn btn-secondary" onclick="showHome()">← Quay Lại</button>
+      <select id="chapterSelect" onchange="switchChapter()"></select>
+      <button class="btn" onclick="openAddChapterModal()">+ Thêm Chương</button>
+      <button class="btn danger-btn" onclick="deleteStory()" style="margin-left: auto;">Xóa Truyện</button>
+    </div>
+
+    <div id="storyDetails" style="margin-bottom: 20px;"></div>
+    <div id="chapterContent"></div>
+  </div>
+
+  <!-- Modal Tạo Truyện Mới -->
+  <div class="modal" id="storyModal">
+    <div class="modal-content">
+      <h3>Đăng Truyện Mới</h3>
+      <label>Tên tác phẩm:</label>
+      <input type="text" id="newTitle" placeholder="Nhập tên truyện..." required>
+
+      <label>Loại hình:</label>
+      <select id="newType">
+        <option value="novel">Truyện chữ / Tiểu thuyết (Novel)</option>
+        <option value="comic">Truyện tranh (Comic / Manga / Manhwa)</option>
+      </select>
+
+      <label>Tác giả:</label>
+      <input type="text" id="newAuthor" placeholder="Tên tác giả...">
+
+      <label>Ảnh bìa (Chọn file từ máy HOẶC dán URL ảnh):</label>
+      <input type="file" id="coverFileInput" accept="image/*">
+      <input type="text" id="coverUrlInput" placeholder="Hoặc dán URL ảnh (https://...)">
+
+      <label>Tóm tắt:</label>
+      <textarea id="newSummary" rows="3" placeholder="Tóm tắt ngắn gọn..."></textarea>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn btn-secondary" onclick="closeModal('storyModal')">Đóng</button>
+        <button class="btn" onclick="saveStory()">Lưu Truyện</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Thêm Chương Mới -->
+  <div class="modal" id="chapterModal">
+    <div class="modal-content">
+      <h3>Thêm Chương Mới</h3>
+      <label>Tên chương:</label>
+      <input type="text" id="chapterTitle" placeholder="Ví dụ: Chương 1: Mở Đầu" required>
+
+      <div id="novelInputSection">
+        <label>Nội dung chương truyện:</label>
+        <textarea id="novelContentInput" rows="10" placeholder="Soạn hoặc dán văn bản truyện chữ vào đây..."></textarea>
+      </div>
+
+      <div id="comicInputSection" style="display: none;">
+        <label>Chọn các trang tranh từ máy:</label>
+        <input type="file" id="comicFilesInput" accept="image/*" multiple>
+        <label>Hoặc dán danh sách link ảnh (mỗi dòng 1 link):</label>
+        <textarea id="comicUrlsInput" rows="4" placeholder="https://anh1.jpg&#10;https://anh2.jpg"></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn btn-secondary" onclick="closeModal('chapterModal')">Đóng</button>
+        <button class="btn" onclick="saveChapter()">Tải Lên Chương</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DEFAULT_COVER = 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=500';
+    let stories = JSON.parse(localStorage.getItem('app_stories')) || [
+      {
+        id: '1',
+        title: 'Hành Trình Giả Tưởng',
+        type: 'novel',
+        author: 'Tác giả A',
+        cover: DEFAULT_COVER,
+        summary: 'Một tiểu thuyết ví dụ chạy thử nghiệm trên nền tảng GitHub Pages.',
+        chapters: [
+          {
+            title: 'Chương 1: Bình minh',
+            content: 'Ánh bình minh bắt đầu ló rạng phía chân trời xa xăm, báo hiệu một cuộc phiêu lưu mới sắp bắt đầu...'
+          }
+        ]
+      }
+    ];
+
+    let currentStoryId = null;
+
+    function saveToStorage() {
+      try {
+        localStorage.setItem('app_stories', JSON.stringify(stories));
+      } catch (e) {
+        alert('Bộ nhớ trình duyệt bị đầy! Hãy dùng đường link ảnh thay vì tải trực tiếp ảnh quá nặng.');
+      }
+    }
+
+    // Đọc file sang Base64
+    const fileToBase64 = file => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+
+    function renderStories() {
+      const grid = document.getElementById('storyGrid');
+      grid.innerHTML = stories.map(s => `
+        <div class="card" onclick="openStory('${s.id}')">
+          <img src="${s.cover || DEFAULT_COVER}" alt="${s.title}" onerror="this.src='${DEFAULT_COVER}'">
+          <div class="card-body">
+            <span class="badge ${s.type === 'novel' ? 'badge-novel' : 'badge-comic'}">
+              ${s.type === 'novel' ? 'Novel' : 'Comic'}
+            </span>
+            <h4 style="margin: 4px 0 8px;">${s.title}</h4>
+            <small style="color: var(--muted);">${s.author || 'Khuyết danh'}</small>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function showHome() {
+      document.getElementById('homeView').style.display = 'block';
+      document.getElementById('readView').style.display = 'none';
+      renderStories();
+    }
+
+    function openStory(id) {
+      currentStoryId = id;
+      const story = stories.find(s => s.id === id);
+      if (!story) return;
+
+      document.getElementById('homeView').style.display = 'none';
+      document.getElementById('readView').style.display = 'block';
+
+      document.getElementById('storyDetails').innerHTML = `
+        <h2>${story.title}</h2>
+        <p style="color: var(--muted);">Tác giả: ${story.author || 'Chưa rõ'} | Thể loại: ${story.type.toUpperCase()}</p>
+        <p>${story.summary || ''}</p>
+      `;
+
+      const select = document.getElementById('chapterSelect');
+      if (story.chapters.length === 0) {
+        select.innerHTML = '<option>Chưa có chương nào</option>';
+        document.getElementById('chapterContent').innerHTML = '<p>Chưa có nội dung. Bấm nút "+ Thêm Chương" để thêm ngay!</p>';
+        return;
+      }
+
+      select.innerHTML = story.chapters.map((ch, idx) => `
+        <option value="${idx}">${ch.title}</option>
+      `).join('');
+
+      renderChapter(0);
+    }
+
+    function renderChapter(index) {
+      const story = stories.find(s => s.id === currentStoryId);
+      if (!story || !story.chapters[index]) return;
+      const chapter = story.chapters[index];
+      const container = document.getElementById('chapterContent');
+
+      if (story.type === 'novel') {
+        container.innerHTML = `<div class="novel-view">${chapter.content}</div>`;
+      } else {
+        const imgs = chapter.images || [];
+        container.innerHTML = `<div class="comic-view">${imgs.map(src => `<img src="${src}" loading="lazy">`).join('')}</div>`;
+      }
+    }
+
+    function switchChapter() {
+      const idx = document.getElementById('chapterSelect').value;
+      renderChapter(idx);
+    }
+
+    // Modal helpers
+    function openCreateStoryModal() {
+      document.getElementById('storyModal').style.display = 'flex';
+    }
+    function openAddChapterModal() {
+      const story = stories.find(s => s.id === currentStoryId);
+      if (story.type === 'novel') {
+        document.getElementById('novelInputSection').style.display = 'block';
+        document.getElementById('comicInputSection').style.display = 'none';
+      } else {
+        document.getElementById('novelInputSection').style.display = 'none';
+        document.getElementById('comicInputSection').style.display = 'block';
+      }
+      document.getElementById('chapterModal').style.display = 'flex';
+    }
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    // Lưu Truyện
+    async function saveStory() {
+      const title = document.getElementById('newTitle').value.trim();
+      if (!title) return alert('Vui lòng nhập tên truyện!');
+
+      const type = document.getElementById('newType').value;
+      const author = document.getElementById('newAuthor').value.trim();
+      const summary = document.getElementById('newSummary').value.trim();
+      const file = document.getElementById('coverFileInput').files[0];
+      const url = document.getElementById('coverUrlInput').value.trim();
+
+      let cover = DEFAULT_COVER;
+      if (file) {
+        cover = await fileToBase64(file);
+      } else if (url) {
+        cover = url;
+      }
+
+      const newStory = {
+        id: Date.now().toString(),
+        title,
+        type,
+        author,
+        summary,
+        cover,
+        chapters: []
+      };
+
+      stories.unshift(newStory);
+      saveToStorage();
+      closeModal('storyModal');
+      renderStories();
+
+      // Reset form
+      document.getElementById('newTitle').value = '';
+      document.getElementById('newAuthor').value = '';
+      document.getElementById('newSummary').value = '';
+      document.getElementById('coverFileInput').value = '';
+      document.getElementById('coverUrlInput').value = '';
+    }
+
+    // Lưu Chương
+    async function saveChapter() {
+      const story = stories.find(s => s.id === currentStoryId);
+      if (!story) return;
+
+      const title = document.getElementById('chapterTitle').value.trim() || `Chương ${story.chapters.length + 1}`;
+      let newChapter = { title };
+
+      if (story.type === 'novel') {
+        newChapter.content = document.getElementById('novelContentInput').value;
+      } else {
+        let images = [];
+        const files = document.getElementById('comicFilesInput').files;
+        if (files.length > 0) {
+          for (let f of files) {
+            const b64 = await fileToBase64(f);
+            images.push(b64);
+          }
+        }
+        const urlLines = document.getElementById('comicUrlsInput').value.split('\n');
+        for (let line of urlLines) {
+          if (line.trim()) images.push(line.trim());
+        }
+        newChapter.images = images;
+      }
+
+      story.chapters.push(newChapter);
+      saveToStorage();
+      closeModal('chapterModal');
+      openStory(currentStoryId);
+
+      // Reset
+      document.getElementById('chapterTitle').value = '';
+      document.getElementById('novelContentInput').value = '';
+      document.getElementById('comicFilesInput').value = '';
+      document.getElementById('comicUrlsInput').value = '';
+    }
+
+    function deleteStory() {
+      if (!confirm('Bạn có chắc chắn muốn xóa bộ truyện này?')) return;
+      stories = stories.filter(s => s.id !== currentStoryId);
+      saveToStorage();
+      showHome();
+    }
+
+    function exportData() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(stories, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "truyen_backup.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    renderStories();
+  </script>
+</body>
+</html>
